@@ -7,7 +7,6 @@ import com.codahale.metrics.annotation.Timed;
 import io.dropwizard.jersey.PATCH;
 import io.swagger.annotations.Api;
 
-import javax.validation.Valid;
 import javax.validation.constraints.NotNull;
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -26,7 +25,7 @@ public class GameApi {
   @POST
   @Timed
   @Path("/start")
-  public BoardView start(@QueryParam("start_player") @DefaultValue("1") @Valid Player startPlayer) {
+  public BoardView start(@QueryParam("start_player") @NotNull Player startPlayer) {
     String sessionId = UUID.randomUUID().toString();
     Board board = new Board(startPlayer, sessionId);
     games.put(sessionId, board);
