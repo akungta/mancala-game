@@ -15,7 +15,7 @@ public class Board {
 
   private Map<Player, PlayPit[]> playPits = new HashMap<>();
 
-  private BigPit[] bigPits = new BigPit[2];
+  private Map<Player, BigPit> bigPits = new HashMap<>();
 
   @Getter private Player nextPlayer;
 
@@ -29,21 +29,21 @@ public class Board {
     this.nextPlayer = nextPlayer;
     this.sessionId = sessionId;
 
-    bigPits[0] = new BigPit(Player.PLAYER1, 0);
-    bigPits[1] = new BigPit(Player.PLAYER2, 0);
+    bigPits.put(Player.PLAYER1, new BigPit(Player.PLAYER1, 0));
+    bigPits.put(Player.PLAYER2, new BigPit(Player.PLAYER2, 0));
 
-    Pit previousPit = bigPits[1];
+    Pit previousPit = bigPits.get(Player.PLAYER2);
     // set up the board initial state
-    for (int playerIndex = 0; playerIndex < 2; playerIndex++) {
-      PlayPit[] playPits = new PlayPit[PITS_SIZE];
-      for (int i = 0; i < PITS_SIZE; i++) {
-        PlayPit currentPit = new PlayPit(Player.get(playerIndex), i, NUM_STONES);
-        playPits[i] = currentPit;
+    for (Player player : bigPits.keySet()) {
+      PlayPit[] pits = new PlayPit[PITS_SIZE];
+      for (int position = 0; position < PITS_SIZE; position++) {
+        PlayPit currentPit = new PlayPit(player, position, NUM_STONES);
+        pits[position] = currentPit;
         previousPit.nextPit = currentPit;
         previousPit = currentPit;
       }
-      this.playPits.put(Player.get(playerIndex), playPits);
-      BigPit currentPit = bigPits[playerIndex];
+      playPits.put(player, pits);
+      BigPit currentPit = bigPits.get(player);
       previousPit.nextPit = currentPit;
       previousPit = currentPit;
     }
@@ -56,7 +56,7 @@ public class Board {
       for (PlayPit playPit : playPits.get(player)) {
         pitsView.put(playPit.position, playPit.stones);
       }
-      playerPitsView.put(player, new BoardView.PlayerPits(pitsView, bigPits[player.index].stones));
+      playerPitsView.put(player, new BoardView.PlayerPits(pitsView, bigPits.get(player).stones));
     }
     return new BoardView(sessionId, gameState, nextPlayer, playerPitsView);
   }
@@ -120,7 +120,7 @@ public class Board {
 
       // clean-up pits
       for (Player player : playPits.keySet()) {
-        BigPit bigPit = bigPits[player.index];
+        BigPit bigPit = bigPits.get(player);
         Arrays.stream(playPits.get(player))
             .forEach(
                 p -> {
@@ -129,9 +129,9 @@ public class Board {
                 });
       }
 
-      if (bigPits[0].stones > bigPits[1].stones) {
+      if (bigPits.get(Player.PLAYER1).stones > bigPits.get(Player.PLAYER2).stones) {
         gameState = GameState.PLAYER1_WIN;
-      } else if (bigPits[0].stones < bigPits[1].stones) {
+      } else if (bigPits.get(Player.PLAYER1).stones < bigPits.get(Player.PLAYER2).stones) {
         gameState = GameState.PLAYER2_WIN;
       } else {
         gameState = GameState.TIE;
