@@ -1,103 +1,185 @@
 package com.akashrungta.game.mancala.core;
 
+import lombok.Getter;
+
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
+
 public class Board {
 
-    private static final int PITS_SIZE = 6;
+  public static final int PITS_SIZE = 6;
 
-    private static final int NUM_STONES = 6;
+  public static final int NUM_STONES = 6;
 
-    PlayPit[][] playsPits = new PlayPit[2][PITS_SIZE];
+  private Map<Player, PlayPit[]> playPits = new HashMap<>();
 
-    BigPit[] bigPits = new BigPit[2];
+  private BigPit[] bigPits = new BigPit[2];
 
-    public Board() {
+  @Getter private Player nextPlayer;
 
-        bigPits[0] = new BigPit(0, 0);
-        bigPits[1] = new BigPit(1, 0);
+  private GameState gameState = GameState.PLAYING;
 
-        Pit previousPit = bigPits[1];
-        // set up other pits
-        for (int player = 0; player < 2; player++) {
-            for (int i = 0; i < PITS_SIZE; i++) {
-                PlayPit currentPit = new PlayPit(player, i, NUM_STONES);
-                playsPits[player][i] = currentPit;
-                previousPit.nextPit = currentPit;
-                previousPit = currentPit;
-            }
-            BigPit currentPit = bigPits[player];
-            previousPit.nextPit = currentPit;
-            previousPit = currentPit;
-        }
+  @Getter private boolean isGameFinished;
 
+  private String sessionId;
+
+  public Board(Player nextPlayer, String sessionId) {
+    this.nextPlayer = nextPlayer;
+    this.sessionId = sessionId;
+
+    bigPits[0] = new BigPit(Player.PLAYER1, 0);
+    bigPits[1] = new BigPit(Player.PLAYER2, 0);
+
+    Pit previousPit = bigPits[1];
+    // set up the board initial state
+    for (int playerIndex = 0; playerIndex < 2; playerIndex++) {
+      PlayPit[] playPits = new PlayPit[PITS_SIZE];
+      for (int i = 0; i < PITS_SIZE; i++) {
+        PlayPit currentPit = new PlayPit(Player.get(playerIndex), i, NUM_STONES);
+        playPits[i] = currentPit;
+        previousPit.nextPit = currentPit;
+        previousPit = currentPit;
+      }
+      this.playPits.put(Player.get(playerIndex), playPits);
+      BigPit currentPit = bigPits[playerIndex];
+      previousPit.nextPit = currentPit;
+      previousPit = currentPit;
+    }
+  }
+
+  public BoardView getView() {
+    Map<Player, BoardView.PlayerPits> playerPitsView = new LinkedHashMap<>();
+    for (Player player : playPits.keySet()) {
+      Map<Integer, Integer> pitsView = new LinkedHashMap<>();
+      for (PlayPit playPit : playPits.get(player)) {
+        pitsView.put(playPit.position, playPit.stones);
+      }
+      playerPitsView.put(player, new BoardView.PlayerPits(pitsView, bigPits[player.index].stones));
+    }
+    return new BoardView(sessionId, gameState, nextPlayer, playerPitsView);
+  }
+
+  public void play(Player player, int position) {
+    // Figure out the pit the position maps to
+    Pit pit = playPits.get(player)[position];
+
+    // throw exceptions if there are no stones in the pit or its the big pit
+    if (pit.stones == 0) {
+      throw new RuntimeException("No stones in the pit");
     }
 
-    public boolean move(int player, int position) {
-        Pit pit = playsPits[player][position];
-        if (pit.stones == 0) {
-            throw new RuntimeException("Not stones");
-        } else if (pit instanceof BigPit) {
-            throw new RuntimeException("Not allowed to move from Big Pit");
-        }
+    // number of stones that can be sowed
+    int stones = pit.stones;
 
-        int stones = pit.stones;
-        pit.stones = 0;
-        while (stones > 0) {
-            pit = pit.nextPit;
-            if (pit instanceof BigPit && pit.player != player) {
-                continue;
-            }
-            if(pit instanceof PlayPit && stones == 1 && pit.player == player){
-                PlayPit oppositePlayerPit = playsPits[oppositePlayer(player)][oppositePlayerPosition(((PlayPit) pit).position)];
-                playsPits[player][PITS_SIZE].stones += 1 + oppositePlayerPit.stones;
-                oppositePlayerPit.stones = 0;
-                stones--;
-            } else {
-                pit.stones += 1;
-                stones--;
-            }
-        }
-        if (pit instanceof BigPit && pit.player == player) {
-            return true;
-        }
-        return false;
+    // stones in current pit becomes 0
+    pit.stones = 0;
+
+    // sow stones until they are gone
+    while (stones > 0) {
+
+      pit = pit.nextPit;
+
+      // skip sowing in the opponent player's big pit
+      if (pit instanceof BigPit && pit.player != player) {
+        continue;
+      }
+
+      // capture opponent's stones if last stone lands in an own empty pit
+      if (pit.stones == 0 && stones == 1 && pit.player == player && pit instanceof PlayPit) {
+        captureOpponentPlayerStones((PlayPit) pit);
+      }
+
+      // sow a stone
+      pit.stones += 1;
+
+      // reduce from the pile
+      stones--;
     }
 
-    private int oppositePlayer(int player){
-        return player == 1 ? 0 : 1;
+    // if the last stone lands on own big pit, player get another turn
+    if (pit instanceof BigPit && pit.player == player) {
+      nextPlayer = player;
+    } else {
+      nextPlayer = opponentPlayer(player);
     }
 
-    private int oppositePlayerPosition(int position){
-        return PITS_SIZE - 1 - position;
+    checkGameFinish();
+  }
+
+  private void checkGameFinish() {
+    for (Player player : playPits.keySet()) {
+      if (Arrays.stream(playPits.get(player)).mapToInt(p -> p.stones).sum() == 0) {
+        // game over
+        isGameFinished = true;
+        break;
+      }
     }
+    if (isGameFinished) {
 
+      // clean-up pits
+      for (Player player : playPits.keySet()) {
+        BigPit bigPit = bigPits[player.index];
+        Arrays.stream(playPits.get(player))
+            .forEach(
+                p -> {
+                  bigPit.stones += p.stones;
+                  p.stones = 0;
+                });
+      }
 
-    static abstract class Pit {
-        int player;
-        int stones;
-        Pit nextPit;
-
-        public Pit(int player, int stones) {
-            this.player = player;
-            this.stones = stones;
-        }
+      if (bigPits[0].stones > bigPits[1].stones) {
+        gameState = GameState.PLAYER1_WIN;
+      } else if (bigPits[0].stones < bigPits[1].stones) {
+        gameState = GameState.PLAYER2_WIN;
+      } else {
+        gameState = GameState.TIE;
+      }
     }
+  }
 
-    static class PlayPit extends Pit {
+  private void captureOpponentPlayerStones(PlayPit pit) {
+    PlayPit oppositePlayerPit =
+        playPits.get(opponentPlayer(pit.player))[opponentPlayerPosition(pit.position)];
+    pit.stones += oppositePlayerPit.stones;
+    oppositePlayerPit.stones = 0;
+  }
 
-        int position;
+  private Player opponentPlayer(Player player) {
+    return player == Player.PLAYER1 ? Player.PLAYER2 : Player.PLAYER1;
+  }
 
-        public PlayPit(int player, int position, int stones) {
-            super(player, stones);
-            this.position = position;
-        }
+  // the opponent's pit would be diagonally opposite
+  private int opponentPlayerPosition(int position) {
+    return PITS_SIZE - 1 - position;
+  }
+
+  private abstract static class Pit {
+    Player player;
+    int stones;
+    Pit nextPit;
+
+    Pit(Player player, int stones) {
+      this.player = player;
+      this.stones = stones;
     }
+  }
 
-    static class BigPit extends Pit {
+  private static class PlayPit extends Pit {
 
-        public BigPit(int player, int stones) {
-            super(player, stones);
-        }
+    int position;
+
+    PlayPit(Player player, int position, int stones) {
+      super(player, stones);
+      this.position = position;
     }
+  }
 
+  private static class BigPit extends Pit {
 
+    BigPit(Player player, int stones) {
+      super(player, stones);
+    }
+  }
 }
