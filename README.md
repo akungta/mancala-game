@@ -1,4 +1,4 @@
-# MancalaGame
+# Mancala Game
 
 https://en.wikipedia.org/wiki/Mancala
 
@@ -7,8 +7,18 @@ https://en.wikipedia.org/wiki/Mancala
 ### Board Setup
 * Each of the two players has the six pits in front of them. 
 * Right of the six pits, each player has a big pit. 
-* Each of the six pits has six stones.
+* Each of the six pits has six stones, the big pit is empty.
 
+```
+PLAYER 1__________________________________________________________
+/  ____     ____    ____    ____    ____    ____    ____          \
+/ |    |   [_6__]  [_6__]  [_6__]  [_6__]  [_6__]  [_6__]   ____  \
+/ | 0  |                                                   |    | \
+/ |____|    ____    ____    ____    ____    ____    ____   | 0  | \
+/          [_6__]  [_6__]  [_6__]  [_6__]  [_6__]  [_6__]  |____| \
+/__________________________________________________________       \
+                                                           PLAYER 2
+```
 ### Play
 
 * The player who begins the move picks up all the stones in anyone of the own six pits, and sows the stones on to the right, one in each of the following pits anti-clockwise, including the own big pit. 
@@ -22,10 +32,10 @@ How to start the MancalaGame application
 
 1. Run `mvn clean install` to build your application
 1. Start application with `java -jar target/mancala-game-1.0-SNAPSHOT.jar server config.yml`
-1. To check that your application is running enter url `http://localhost:8080/swagger`
+1. To check that your application is running enter url `http://localhost:9080/swagger`
 
 Health Check
 ---
 
-To see your applications health enter url `http://localhost:8081/healthcheck`
+To see your applications health enter url `http://localhost:9081/healthcheck`
 

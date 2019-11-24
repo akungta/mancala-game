@@ -35,7 +35,7 @@ public class GameApi {
   @GET
   @Timed
   @Path("/{session_id}/get")
-  public BoardView get(@PathParam("session_id") String sessionId) {
+  public BoardView get(@PathParam("session_id") @NotNull String sessionId) {
     return games
         .compute(
             sessionId,
@@ -52,9 +52,9 @@ public class GameApi {
   @Timed
   @Path("/{session_id}/play")
   public BoardView play(
-      @PathParam("session_id") String sessionId,
-      @QueryParam("player") @NotNull Player player,
-      @QueryParam("pit_position") @NotNull int pitPosition) {
+          @PathParam("session_id") @NotNull String sessionId,
+          @QueryParam("player") @NotNull Player player,
+          @QueryParam("pit_position") @NotNull int pitPosition) {
     return games
         .compute(
             sessionId,
@@ -62,20 +62,11 @@ public class GameApi {
               if (board == null) {
                 throw new WebApplicationException("No such session", Response.Status.BAD_REQUEST);
               }
-              if (board.getNextPlayer() != player) {
-                throw new WebApplicationException(
-                    "Wrong Player's turn", Response.Status.BAD_REQUEST);
-              }
-              if (pitPosition < 0 || pitPosition >= board.PITS_SIZE) {
-                throw new WebApplicationException("Invalid position", Response.Status.BAD_REQUEST);
-              }
               try {
                 board.play(player, pitPosition);
-
                 if (board.isGameFinished()) {
                   games.remove(seId);
                 }
-
               } catch (RuntimeException e) {
                 throw new WebApplicationException(e.getMessage(), Response.Status.BAD_REQUEST);
               }

@@ -1,14 +1,12 @@
 package com.akashrungta.game.mancala.core;
 
 import io.dropwizard.jackson.JsonSnakeCase;
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import lombok.Value;
 
 import java.util.Map;
 
 @JsonSnakeCase
-@Data
-@AllArgsConstructor
+@Value
 public class BoardView {
 
   String sessionId;
@@ -20,11 +18,10 @@ public class BoardView {
   Map<Player, PlayerPits> playerPits;
 
   @JsonSnakeCase
-  @Data
-  @AllArgsConstructor
+  @Value
   public static class PlayerPits {
 
-    Map<Integer, Integer> pits;
+    Map<String, Integer> pits;
 
     int bigPit;
   }

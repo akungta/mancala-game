@@ -1,5 +1,6 @@
 package com.akashrungta.game.mancala.core;
 
+import com.google.common.base.Preconditions;
 import lombok.Getter;
 
 import java.util.Arrays;
@@ -9,9 +10,9 @@ import java.util.Map;
 
 public class Board {
 
-  public static final int PITS_SIZE = 6;
+  private static final int PITS_SIZE = 6;
 
-  public static final int NUM_STONES = 6;
+  private static final int NUM_STONES = 6;
 
   private Map<Player, PlayPit[]> playPits = new HashMap<>();
 
@@ -32,29 +33,44 @@ public class Board {
     bigPits.put(Player.PLAYER1, new BigPit(Player.PLAYER1, 0));
     bigPits.put(Player.PLAYER2, new BigPit(Player.PLAYER2, 0));
 
+    // set the player 2 big pit for circular linked list
     Pit previousPit = bigPits.get(Player.PLAYER2);
-    // set up the board initial state
-    for (Player player : bigPits.keySet()) {
-      PlayPit[] pits = new PlayPit[PITS_SIZE];
-      for (int position = 0; position < PITS_SIZE; position++) {
-        PlayPit currentPit = new PlayPit(player, position, NUM_STONES);
-        pits[position] = currentPit;
-        previousPit.nextPit = currentPit;
-        previousPit = currentPit;
-      }
-      playPits.put(player, pits);
-      BigPit currentPit = bigPits.get(player);
+    // set up the board initial state for player 1
+    previousPit = setupPits(Player.PLAYER1, previousPit);
+    // set up the board initial state for player 2
+    setupPits(Player.PLAYER2, previousPit);
+
+    // set up opposite pits
+    for (int position = 0; position < PITS_SIZE; position++) {
+      PlayPit player1Pit = playPits.get(Player.PLAYER1)[position];
+      // the opponent's pit would be diagonally opposite
+      PlayPit player2Pit = playPits.get(Player.PLAYER2)[PITS_SIZE - 1 - position];
+      player1Pit.oppositePit = player2Pit;
+      player2Pit.oppositePit = player1Pit;
+    }
+  }
+
+  private Pit setupPits(Player player, Pit previousPit) {
+    PlayPit[] pits = new PlayPit[PITS_SIZE];
+    for (int position = 0; position < PITS_SIZE; position++) {
+      PlayPit currentPit = new PlayPit(player, NUM_STONES, position);
+      pits[position] = currentPit;
       previousPit.nextPit = currentPit;
       previousPit = currentPit;
     }
+    playPits.put(player, pits);
+    BigPit currentPit = bigPits.get(player);
+    previousPit.nextPit = currentPit;
+    previousPit = currentPit;
+    return previousPit;
   }
 
   public BoardView getView() {
     Map<Player, BoardView.PlayerPits> playerPitsView = new LinkedHashMap<>();
     for (Player player : playPits.keySet()) {
-      Map<Integer, Integer> pitsView = new LinkedHashMap<>();
+      Map<String, Integer> pitsView = new LinkedHashMap<>();
       for (PlayPit playPit : playPits.get(player)) {
-        pitsView.put(playPit.position, playPit.stones);
+        pitsView.put(String.valueOf(playPit.position), playPit.stones);
       }
       playerPitsView.put(player, new BoardView.PlayerPits(pitsView, bigPits.get(player).stones));
     }
@@ -62,13 +78,15 @@ public class Board {
   }
 
   public void play(Player player, int position) {
+
+    Preconditions.checkArgument(nextPlayer == player, "Wrong Player's turn");
+    Preconditions.checkArgument(position >= 0 && position < PITS_SIZE, "Invalid position");
+
     // Figure out the pit the position maps to
     Pit pit = playPits.get(player)[position];
 
     // throw exceptions if there are no stones in the pit or its the big pit
-    if (pit.stones == 0) {
-      throw new RuntimeException("No stones in the pit");
-    }
+    Preconditions.checkArgument(pit.stones > 0, "No stones in the pit");
 
     // number of stones that can be sowed
     int stones = pit.stones;
@@ -110,7 +128,7 @@ public class Board {
 
   private void checkGameFinish() {
     for (Player player : playPits.keySet()) {
-      if (Arrays.stream(playPits.get(player)).mapToInt(p -> p.stones).sum() == 0) {
+      if (Arrays.stream(playPits.get(player)).allMatch(p -> p.stones == 0)) {
         // game over
         isGameFinished = true;
         break;
@@ -140,19 +158,12 @@ public class Board {
   }
 
   private void captureOpponentPlayerStones(PlayPit pit) {
-    PlayPit oppositePlayerPit =
-        playPits.get(opponentPlayer(pit.player))[opponentPlayerPosition(pit.position)];
-    pit.stones += oppositePlayerPit.stones;
-    oppositePlayerPit.stones = 0;
+    pit.stones += pit.oppositePit.stones;
+    pit.oppositePit.stones = 0;
   }
 
   private Player opponentPlayer(Player player) {
     return player == Player.PLAYER1 ? Player.PLAYER2 : Player.PLAYER1;
-  }
-
-  // the opponent's pit would be diagonally opposite
-  private int opponentPlayerPosition(int position) {
-    return PITS_SIZE - 1 - position;
   }
 
   private abstract static class Pit {
@@ -170,7 +181,9 @@ public class Board {
 
     int position;
 
-    PlayPit(Player player, int position, int stones) {
+    PlayPit oppositePit;
+
+    PlayPit(Player player, int stones, int position) {
       super(player, stones);
       this.position = position;
     }
